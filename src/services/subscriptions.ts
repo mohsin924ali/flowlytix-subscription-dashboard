@@ -4,7 +4,7 @@
  * Following Instructions file standards with comprehensive CRUD operations
  */
 
-import { apiClient } from './api';
+import { apiClient } from "./api";
 import {
   Subscription,
   Customer,
@@ -13,21 +13,22 @@ import {
   CreateSubscriptionForm,
   UpdateSubscriptionForm,
   ApiResponse,
-} from '@/types';
+} from "@/types";
 
 /**
  * Subscription Service Class
  * Provides methods for managing subscriptions
  */
 class SubscriptionService {
-  private readonly baseUrl = '/api/v1/subscription/subscriptions';
+  private readonly baseUrl = "/api/v1/subscription/subscriptions";
 
   /**
    * Transform backend subscription data to frontend format
    */
   private transformSubscription(item: any): Subscription {
     // Extract customer name from customer object or fallback to old format
-    const customerName = item.customer?.name || item.customer_name || 'Unknown Customer';
+    const customerName =
+      item.customer?.name || item.customer_name || "Unknown Customer";
 
     return {
       id: item.id,
@@ -56,7 +57,7 @@ class SubscriptionService {
       gracePeriodDays: item.grace_period_days || 0,
       lastActivity: new Date(item.updated_at),
       lastSyncAt: new Date(item.updated_at),
-      notes: item.metadata?.notes || '',
+      notes: item.metadata?.notes || "",
       createdAt: new Date(item.created_at),
       updatedAt: new Date(item.updated_at),
     };
@@ -74,28 +75,28 @@ class SubscriptionService {
 
     // Backend uses offset/limit, frontend uses page/pageSize
     const offset = (page - 1) * pageSize;
-    params.append('limit', pageSize.toString());
-    params.append('offset', offset.toString());
+    params.append("limit", pageSize.toString());
+    params.append("offset", offset.toString());
 
     // Add filters
     if (filters) {
       if (filters.status && filters.status.length > 0) {
-        filters.status.forEach((status) => params.append('status', status));
+        filters.status.forEach((status) => params.append("status", status));
       }
       if (filters.tier && filters.tier.length > 0) {
-        filters.tier.forEach((tier) => params.append('tier', tier));
+        filters.tier.forEach((tier) => params.append("tier", tier));
       }
       if (filters.search) {
-        params.append('search', filters.search);
+        params.append("search", filters.search);
       }
       if (filters.customerId) {
-        params.append('customer_id', filters.customerId);
+        params.append("customer_id", filters.customerId);
       }
       if (filters.startDate) {
-        params.append('start_date', filters.startDate.toISOString());
+        params.append("start_date", filters.startDate.toISOString());
       }
       if (filters.endDate) {
-        params.append('end_date', filters.endDate.toISOString());
+        params.append("end_date", filters.endDate.toISOString());
       }
     }
 
@@ -107,8 +108,52 @@ class SubscriptionService {
       const backendData = response.data;
       const totalPages = Math.ceil(backendData.total / pageSize);
 
-      // Transform each subscription item
-      const transformedSubscriptions = (backendData.items || []).map((item: any) => this.transformSubscription(item));
+      // Get unique customer IDs from subscriptions
+      const customerIds = [
+        ...new Set(
+          (backendData.items || [])
+            .map((item: any) => item.customer_id)
+            .filter((id: any) => id)
+        ),
+      ];
+
+      // Fetch customer data if we have customer IDs
+      let customerMap = new Map();
+      if (customerIds.length > 0) {
+        try {
+          const customerResponse = await apiClient.get(
+            "/api/v1/subscription/customers"
+          );
+          if (customerResponse.success && customerResponse.data) {
+            const customers = (customerResponse.data as any).items || [];
+            customers.forEach((customer: any) => {
+              customerMap.set(customer.id, customer);
+            });
+          }
+        } catch (error) {
+          console.warn(
+            "Failed to fetch customer data for subscriptions:",
+            error
+          );
+        }
+      }
+
+      // Transform each subscription item with customer data
+      const transformedSubscriptions = (backendData.items || []).map(
+        (item: any) => {
+          // Get customer data for this subscription
+          const customer = customerMap.get(item.customer_id);
+
+          // Create enhanced item with customer data
+          const enhancedItem = {
+            ...item,
+            customer: customer || null,
+            customer_name: customer?.name || null,
+          };
+
+          return this.transformSubscription(enhancedItem);
+        }
+      );
 
       return {
         success: true,
@@ -145,7 +190,9 @@ class SubscriptionService {
   /**
    * Create a new subscription
    */
-  async createSubscription(data: CreateSubscriptionForm): Promise<ApiResponse<Subscription>> {
+  async createSubscription(
+    data: CreateSubscriptionForm
+  ): Promise<ApiResponse<Subscription>> {
     const response = await apiClient.post<any>(this.baseUrl, data);
 
     // Transform backend response to frontend format
@@ -162,7 +209,10 @@ class SubscriptionService {
   /**
    * Update an existing subscription
    */
-  async updateSubscription(id: string, data: UpdateSubscriptionForm): Promise<ApiResponse<Subscription>> {
+  async updateSubscription(
+    id: string,
+    data: UpdateSubscriptionForm
+  ): Promise<ApiResponse<Subscription>> {
     try {
       // Use the general update endpoint for all updates
       const updateData: any = {};
@@ -186,12 +236,17 @@ class SubscriptionService {
           updateData.custom_features = data.features;
         }
       }
-      if (data.maxDevices !== undefined) updateData.max_devices = data.maxDevices;
+      if (data.maxDevices !== undefined)
+        updateData.max_devices = data.maxDevices;
       if (data.expiresAt !== undefined) updateData.expires_at = data.expiresAt;
-      if (data.gracePeriodDays !== undefined) updateData.grace_period_days = data.gracePeriodDays;
+      if (data.gracePeriodDays !== undefined)
+        updateData.grace_period_days = data.gracePeriodDays;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
-      const response = await apiClient.put<any>(`${this.baseUrl}/${id}`, updateData);
+      const response = await apiClient.put<any>(
+        `${this.baseUrl}/${id}`,
+        updateData
+      );
 
       // Transform backend response to frontend format
       if (response.success && response.data) {
@@ -203,10 +258,10 @@ class SubscriptionService {
 
       return response;
     } catch (error) {
-      console.error('Update subscription error:', error);
+      console.error("Update subscription error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Update failed',
+        error: error instanceof Error ? error.message : "Update failed",
       };
     }
   }
@@ -221,8 +276,13 @@ class SubscriptionService {
   /**
    * Suspend a subscription
    */
-  async suspendSubscription(id: string, reason?: string): Promise<ApiResponse<Subscription>> {
-    const response = await apiClient.put<any>(`${this.baseUrl}/${id}/suspend`, { reason });
+  async suspendSubscription(
+    id: string,
+    reason?: string
+  ): Promise<ApiResponse<Subscription>> {
+    const response = await apiClient.put<any>(`${this.baseUrl}/${id}/suspend`, {
+      reason,
+    });
 
     // Transform backend response to frontend format
     if (response.success && response.data) {
@@ -255,8 +315,13 @@ class SubscriptionService {
   /**
    * Cancel a subscription
    */
-  async cancelSubscription(id: string, reason?: string): Promise<ApiResponse<Subscription>> {
-    const response = await apiClient.put<any>(`${this.baseUrl}/${id}/cancel`, { reason });
+  async cancelSubscription(
+    id: string,
+    reason?: string
+  ): Promise<ApiResponse<Subscription>> {
+    const response = await apiClient.put<any>(`${this.baseUrl}/${id}/cancel`, {
+      reason,
+    });
 
     // Transform backend response to frontend format
     if (response.success && response.data) {
@@ -272,7 +337,10 @@ class SubscriptionService {
   /**
    * Renew a subscription
    */
-  async renewSubscription(id: string, expiresAt: Date): Promise<ApiResponse<Subscription>> {
+  async renewSubscription(
+    id: string,
+    expiresAt: Date
+  ): Promise<ApiResponse<Subscription>> {
     const response = await apiClient.post<any>(`${this.baseUrl}/${id}/renew`, {
       expires_at: expiresAt.toISOString(),
     });
@@ -291,14 +359,17 @@ class SubscriptionService {
   /**
    * Get subscription analytics
    */
-  async getSubscriptionAnalytics(startDate?: Date, endDate?: Date): Promise<ApiResponse<any>> {
+  async getSubscriptionAnalytics(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<ApiResponse<any>> {
     const params = new URLSearchParams();
 
     if (startDate) {
-      params.append('start_date', startDate.toISOString());
+      params.append("start_date", startDate.toISOString());
     }
     if (endDate) {
-      params.append('end_date', endDate.toISOString());
+      params.append("end_date", endDate.toISOString());
     }
 
     const url = `${this.baseUrl}/analytics?${params.toString()}`;
@@ -322,8 +393,13 @@ class SubscriptionService {
   /**
    * Revoke device access from subscription
    */
-  async revokeDeviceAccess(subscriptionId: string, deviceId: string): Promise<ApiResponse<void>> {
-    return apiClient.delete<void>(`${this.baseUrl}/${subscriptionId}/devices/${deviceId}`);
+  async revokeDeviceAccess(
+    subscriptionId: string,
+    deviceId: string
+  ): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(
+      `${this.baseUrl}/${subscriptionId}/devices/${deviceId}`
+    );
   }
 
   /**
@@ -334,27 +410,27 @@ class SubscriptionService {
 
     if (filters) {
       if (filters.status && filters.status.length > 0) {
-        filters.status.forEach((status) => params.append('status', status));
+        filters.status.forEach((status) => params.append("status", status));
       }
       if (filters.tier && filters.tier.length > 0) {
-        filters.tier.forEach((tier) => params.append('tier', tier));
+        filters.tier.forEach((tier) => params.append("tier", tier));
       }
       if (filters.search) {
-        params.append('search', filters.search);
+        params.append("search", filters.search);
       }
       if (filters.customerId) {
-        params.append('customer_id', filters.customerId);
+        params.append("customer_id", filters.customerId);
       }
       if (filters.startDate) {
-        params.append('start_date', filters.startDate.toISOString());
+        params.append("start_date", filters.startDate.toISOString());
       }
       if (filters.endDate) {
-        params.append('end_date', filters.endDate.toISOString());
+        params.append("end_date", filters.endDate.toISOString());
       }
     }
 
     const url = `${this.baseUrl}/export?${params.toString()}`;
-    const filename = `subscriptions_${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `subscriptions_${new Date().toISOString().split("T")[0]}.csv`;
 
     await apiClient.downloadFile(url, filename);
   }
@@ -362,17 +438,26 @@ class SubscriptionService {
   /**
    * Validate license key
    */
-  async validateLicenseKey(licenseKey: string): Promise<ApiResponse<{ valid: boolean; message: string }>> {
-    return apiClient.post<{ valid: boolean; message: string }>('/api/v1/licensing/validate-key', {
-      license_key: licenseKey,
-    });
+  async validateLicenseKey(
+    licenseKey: string
+  ): Promise<ApiResponse<{ valid: boolean; message: string }>> {
+    return apiClient.post<{ valid: boolean; message: string }>(
+      "/api/v1/licensing/validate-key",
+      {
+        license_key: licenseKey,
+      }
+    );
   }
 
   /**
    * Generate new license key
    */
-  async generateLicenseKey(subscriptionId: string): Promise<ApiResponse<{ licenseKey: string }>> {
-    return apiClient.post<{ licenseKey: string }>(`${this.baseUrl}/${subscriptionId}/generate-key`);
+  async generateLicenseKey(
+    subscriptionId: string
+  ): Promise<ApiResponse<{ licenseKey: string }>> {
+    return apiClient.post<{ licenseKey: string }>(
+      `${this.baseUrl}/${subscriptionId}/generate-key`
+    );
   }
 
   /**
@@ -384,8 +469,8 @@ class SubscriptionService {
     pageSize: number = 10
   ): Promise<ApiResponse<PaginatedResponse<any>>> {
     const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('page_size', pageSize.toString());
+    params.append("page", page.toString());
+    params.append("page_size", pageSize.toString());
 
     const url = `${this.baseUrl}/${id}/activity?${params.toString()}`;
     return apiClient.get<PaginatedResponse<any>>(url);
@@ -398,17 +483,24 @@ class SubscriptionService {
     subscriptionIds: string[],
     updates: Partial<UpdateSubscriptionForm>
   ): Promise<ApiResponse<{ updated: number; failed: number }>> {
-    return apiClient.post<{ updated: number; failed: number }>(`${this.baseUrl}/bulk-update`, {
-      subscription_ids: subscriptionIds,
-      updates,
-    });
+    return apiClient.post<{ updated: number; failed: number }>(
+      `${this.baseUrl}/bulk-update`,
+      {
+        subscription_ids: subscriptionIds,
+        updates,
+      }
+    );
   }
 
   /**
    * Get subscription health check
    */
-  async getHealthCheck(): Promise<ApiResponse<{ healthy: boolean; message: string }>> {
-    return apiClient.get<{ healthy: boolean; message: string }>('/api/v1/health');
+  async getHealthCheck(): Promise<
+    ApiResponse<{ healthy: boolean; message: string }>
+  > {
+    return apiClient.get<{ healthy: boolean; message: string }>(
+      "/api/v1/health"
+    );
   }
 }
 
