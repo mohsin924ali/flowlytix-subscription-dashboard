@@ -326,7 +326,7 @@ export default function PaymentsPage() {
                 <Typography variant='h6' color='info.main'>
                   Pending Payments
                 </Typography>
-                <Typography variant='h4'>{stats.pendingPayments || 0}</Typography>
+                <Typography variant='h4'>{stats?.statusBreakdown?.pending || 0}</Typography>
               </CardContent>
             </Card>
           </Grid>
@@ -336,7 +336,7 @@ export default function PaymentsPage() {
                 <Typography variant='h6' color='warning.main'>
                   Failed Payments
                 </Typography>
-                <Typography variant='h4'>{stats.failedPayments || 0}</Typography>
+                <Typography variant='h4'>{stats?.statusBreakdown?.failed || 0}</Typography>
               </CardContent>
             </Card>
           </Grid>

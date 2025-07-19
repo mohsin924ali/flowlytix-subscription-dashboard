@@ -5,17 +5,16 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PaymentService } from '@/services/payments';
+import { paymentService } from '@/services/payments';
 import {
   Payment,
   PaymentFilters,
   PaginatedResponse,
-  CreatePaymentForm,
-  UpdatePaymentForm,
   PaymentStatus,
   PaymentMethod,
   PaymentAnalytics,
-  PaymentStats,
+  CreatePaymentForm,
+  
 } from '@/types';
 
 interface PaymentsState {
@@ -26,7 +25,7 @@ interface PaymentsState {
   pageSize: number;
   filters: PaymentFilters;
   analytics: PaymentAnalytics | null;
-  stats: PaymentStats | null;
+  stats: PaymentAnalytics | null;
   isLoading: boolean;
   isFetching: boolean;
   isCreating: boolean;
@@ -46,7 +45,7 @@ export interface UsePaymentsReturn extends PaymentsState {
   // CRUD operations
   getPayment: (id: string) => Promise<{ success: boolean; data?: Payment; error?: string }>;
   createPayment: (data: CreatePaymentForm) => Promise<{ success: boolean; data?: Payment; error?: string }>;
-  updatePayment: (id: string, data: UpdatePaymentForm) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  updatePayment: (id: string, data: CreatePaymentForm) => Promise<{ success: boolean; data?: Payment; error?: string }>;
   deletePayment: (id: string) => Promise<{ success: boolean; error?: string }>;
 
   // Payment operations
@@ -61,7 +60,7 @@ export interface UsePaymentsReturn extends PaymentsState {
   // Bulk operations
   bulkUpdatePayments: (
     paymentIds: string[],
-    updates: Partial<UpdatePaymentForm>
+    updates: Partial<CreatePaymentForm>
   ) => Promise<{ success: boolean; data?: { updated: number; failed: number }; error?: string }>;
   bulkProcessPayments: (
     paymentIds: string[]
@@ -72,7 +71,7 @@ export interface UsePaymentsReturn extends PaymentsState {
     startDate: Date,
     endDate: Date
   ) => Promise<{ success: boolean; data?: PaymentAnalytics; error?: string }>;
-  fetchStats: () => Promise<{ success: boolean; data?: PaymentStats; error?: string }>;
+  fetchStats: () => Promise<{ success: boolean; data?: PaymentAnalytics; error?: string }>;
 
   // Filters and selection
   setFilters: (filters: Partial<PaymentFilters>) => void;
@@ -90,7 +89,7 @@ export interface UsePaymentsReturn extends PaymentsState {
  * Custom hook for payment management
  */
 export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn => {
-  const paymentService = useRef(new PaymentService()).current;
+  const service = useRef(paymentService).current;
 
   const [state, setState] = useState<PaymentsState>({
     payments: [],
@@ -125,19 +124,19 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       }));
 
       try {
-        const response = await paymentService.getPayments(state.filters, page, state.pageSize);
+        const response = await service.searchPayments(state.filters, page, state.pageSize);
 
         if (response.success && response.data) {
           const responseData = response.data;
-          const newPayments = page === 1 || reset ? responseData.data : [...state.payments, ...responseData.data];
+          const newPayments = page === 1 || reset ? responseData.payments : [...state.payments, ...responseData.payments];
 
           // Calculate if there are more pages
-          const hasMore = page < responseData.totalPages;
+          const hasMore = page < Math.ceil(responseData.total / (responseData.limit || 10));
 
           setState((prev) => ({
             ...prev,
             payments: newPayments,
-            totalCount: responseData.totalCount,
+            totalCount: responseData.total,
             currentPage: page,
             hasMore,
             [loadingState]: false,
@@ -182,7 +181,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
   const getPayment = useCallback(
     async (id: string) => {
       try {
-        const response = await paymentService.getPayment(id);
+        const response = await service.getPayment(id);
 
         if (response.success && response.data) {
           return { success: true, data: response.data };
@@ -207,7 +206,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isCreating: true, error: null }));
 
       try {
-        const response = await paymentService.createPayment(data);
+        const response = await service.createPayment(data);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -243,11 +242,11 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    * Update payment
    */
   const updatePayment = useCallback(
-    async (id: string, data: UpdatePaymentForm) => {
+    async (id: string, data: CreatePaymentForm) => {
       setState((prev) => ({ ...prev, isUpdating: true, error: null }));
 
       try {
-        const response = await paymentService.updatePayment(id, data);
+        const response = await service.updatePayment(id, data);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -287,7 +286,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isDeleting: true, error: null }));
 
       try {
-        const response = await paymentService.deletePayment(id);
+        const response = await service.deletePayment(id);
 
         if (response.success) {
           setState((prev) => ({
@@ -328,7 +327,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await paymentService.processPayment(id, notes);
+        const response = await service.processPayment(id, notes);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -368,7 +367,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await paymentService.failPayment(id, reason);
+        const response = await service.failPayment(id, reason);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -408,7 +407,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await paymentService.refundPayment(id, amount, reason);
+        const response = await service.refundPayment(id, amount, reason);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -444,11 +443,11 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    * Bulk update payments
    */
   const bulkUpdatePayments = useCallback(
-    async (paymentIds: string[], updates: Partial<UpdatePaymentForm>) => {
+    async (paymentIds: string[], updates: Partial<CreatePaymentForm>) => {
       setState((prev) => ({ ...prev, isUpdating: true, error: null }));
 
       try {
-        const response = await paymentService.bulkUpdatePayments(paymentIds, updates);
+        const response = await service.bulkUpdatePayments(paymentIds, updates);
 
         if (response.success) {
           // Refresh the payments list
@@ -484,7 +483,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await paymentService.bulkProcessPayments(paymentIds);
+        const response = await service.bulkProcessPayments(paymentIds);
 
         if (response.success) {
           // Refresh the payments list
@@ -518,7 +517,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
   const fetchAnalytics = useCallback(
     async (startDate: Date, endDate: Date) => {
       try {
-        const response = await paymentService.getAnalytics(startDate, endDate);
+        const response = await service.getAnalytics(startDate, endDate);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -551,7 +550,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    */
   const fetchStats = useCallback(async () => {
     try {
-      const response = await paymentService.getStats();
+      const response = await service.getStats();
 
       if (response.success && response.data) {
         setState((prev) => ({
@@ -612,7 +611,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    */
   const exportPayments = useCallback(async () => {
     try {
-      const response = await paymentService.exportPayments(state.filters);
+      const response = await service.exportPayments(state.filters);
 
       if (response.success) {
         return { success: true };

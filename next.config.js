@@ -42,8 +42,6 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     optimizeCss: true,
-    legacyBrowsers: false,
-    browsersListForSwc: true,
   },
 
   // Image optimization
