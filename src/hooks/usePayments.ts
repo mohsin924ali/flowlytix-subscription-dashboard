@@ -4,8 +4,8 @@
  * Following Instructions file standards with comprehensive payment management
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { paymentService } from '@/services/payments';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { paymentService } from "@/services/payments";
 import {
   Payment,
   PaymentFilters,
@@ -14,8 +14,8 @@ import {
   PaymentMethod,
   PaymentAnalytics,
   CreatePaymentForm,
-  
-} from '@/types';
+  RefundResponse,
+} from "@/types";
 
 interface PaymentsState {
   payments: Payment[];
@@ -43,35 +43,58 @@ export interface UsePaymentsReturn extends PaymentsState {
   refetch: () => Promise<void>;
 
   // CRUD operations
-  getPayment: (id: string) => Promise<{ success: boolean; data?: Payment; error?: string }>;
-  createPayment: (data: CreatePaymentForm) => Promise<{ success: boolean; data?: Payment; error?: string }>;
-  updatePayment: (id: string, data: CreatePaymentForm) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  getPayment: (
+    id: string
+  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  createPayment: (
+    data: CreatePaymentForm
+  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  updatePayment: (
+    id: string,
+    data: CreatePaymentForm
+  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
   deletePayment: (id: string) => Promise<{ success: boolean; error?: string }>;
 
   // Payment operations
-  processPayment: (id: string, notes?: string) => Promise<{ success: boolean; data?: Payment; error?: string }>;
-  failPayment: (id: string, reason: string) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  processPayment: (
+    id: string,
+    notes?: string
+  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  failPayment: (
+    id: string,
+    reason: string
+  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
   refundPayment: (
     id: string,
     amount?: number,
     reason?: string
-  ) => Promise<{ success: boolean; data?: Payment; error?: string }>;
+  ) => Promise<{ success: boolean; data?: RefundResponse; error?: string }>;
 
   // Bulk operations
   bulkUpdatePayments: (
     paymentIds: string[],
     updates: Partial<CreatePaymentForm>
-  ) => Promise<{ success: boolean; data?: { updated: number; failed: number }; error?: string }>;
-  bulkProcessPayments: (
-    paymentIds: string[]
-  ) => Promise<{ success: boolean; data?: { processed: number; failed: number }; error?: string }>;
+  ) => Promise<{
+    success: boolean;
+    data?: { updated: number; failed: number };
+    error?: string;
+  }>;
+  bulkProcessPayments: (paymentIds: string[]) => Promise<{
+    success: boolean;
+    data?: { processed: number; failed: number };
+    error?: string;
+  }>;
 
   // Analytics
   fetchAnalytics: (
     startDate: Date,
     endDate: Date
   ) => Promise<{ success: boolean; data?: PaymentAnalytics; error?: string }>;
-  fetchStats: () => Promise<{ success: boolean; data?: PaymentAnalytics; error?: string }>;
+  fetchStats: () => Promise<{
+    success: boolean;
+    data?: PaymentAnalytics;
+    error?: string;
+  }>;
 
   // Filters and selection
   setFilters: (filters: Partial<PaymentFilters>) => void;
@@ -88,7 +111,9 @@ export interface UsePaymentsReturn extends PaymentsState {
 /**
  * Custom hook for payment management
  */
-export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn => {
+export const usePayments = (
+  initialFilters?: PaymentFilters
+): UsePaymentsReturn => {
   const service = useRef(paymentService).current;
 
   const [state, setState] = useState<PaymentsState>({
@@ -115,7 +140,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    */
   const fetchPayments = useCallback(
     async (page = 1, reset = false) => {
-      const loadingState = page === 1 ? 'isLoading' : 'isFetching';
+      const loadingState = page === 1 ? "isLoading" : "isFetching";
       setState((prev) => ({
         ...prev,
         [loadingState]: true,
@@ -124,14 +149,22 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       }));
 
       try {
-        const response = await service.searchPayments(state.filters, page, state.pageSize);
+        const response = await service.searchPayments(
+          state.filters,
+          page,
+          state.pageSize
+        );
 
         if (response.success && response.data) {
           const responseData = response.data;
-          const newPayments = page === 1 || reset ? responseData.payments : [...state.payments, ...responseData.payments];
+          const newPayments =
+            page === 1 || reset
+              ? responseData.payments
+              : [...state.payments, ...responseData.payments];
 
           // Calculate if there are more pages
-          const hasMore = page < Math.ceil(responseData.total / (responseData.limit || 10));
+          const hasMore =
+            page < Math.ceil(responseData.total / (responseData.limit || 10));
 
           setState((prev) => ({
             ...prev,
@@ -146,14 +179,15 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             [loadingState]: false,
-            error: response.error || 'Failed to fetch payments',
+            error: response.error || "Failed to fetch payments",
           }));
         }
       } catch (error) {
         setState((prev) => ({
           ...prev,
           [loadingState]: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch payments',
+          error:
+            error instanceof Error ? error.message : "Failed to fetch payments",
         }));
       }
     },
@@ -186,12 +220,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
         if (response.success && response.data) {
           return { success: true, data: response.data };
         } else {
-          return { success: false, error: response.error || 'Failed to fetch payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to fetch payment",
+          };
         }
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch payment',
+          error:
+            error instanceof Error ? error.message : "Failed to fetch payment",
         };
       }
     },
@@ -221,12 +259,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isCreating: false,
-            error: response.error || 'Failed to create payment',
+            error: response.error || "Failed to create payment",
           }));
-          return { success: false, error: response.error || 'Failed to create payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to create payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to create payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to create payment";
         setState((prev) => ({
           ...prev,
           isCreating: false,
@@ -251,8 +293,13 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
         if (response.success && response.data) {
           setState((prev) => ({
             ...prev,
-            payments: prev.payments.map((p) => (p.id === id ? response.data! : p)),
-            selectedPayment: prev.selectedPayment?.id === id ? response.data! : prev.selectedPayment,
+            payments: prev.payments.map((p) =>
+              p.id === id ? response.data! : p
+            ),
+            selectedPayment:
+              prev.selectedPayment?.id === id
+                ? response.data!
+                : prev.selectedPayment,
             isUpdating: false,
             error: null,
           }));
@@ -261,12 +308,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isUpdating: false,
-            error: response.error || 'Failed to update payment',
+            error: response.error || "Failed to update payment",
           }));
-          return { success: false, error: response.error || 'Failed to update payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to update payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to update payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to update payment";
         setState((prev) => ({
           ...prev,
           isUpdating: false,
@@ -292,7 +343,8 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             payments: prev.payments.filter((p) => p.id !== id),
-            selectedPayment: prev.selectedPayment?.id === id ? null : prev.selectedPayment,
+            selectedPayment:
+              prev.selectedPayment?.id === id ? null : prev.selectedPayment,
             totalCount: prev.totalCount - 1,
             isDeleting: false,
             error: null,
@@ -302,12 +354,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isDeleting: false,
-            error: response.error || 'Failed to delete payment',
+            error: response.error || "Failed to delete payment",
           }));
-          return { success: false, error: response.error || 'Failed to delete payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to delete payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to delete payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to delete payment";
         setState((prev) => ({
           ...prev,
           isDeleting: false,
@@ -327,13 +383,21 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await service.processPayment(id, notes);
+        const response = await service.processPayment(id, {
+          adminUserId: "system",
+          notes,
+        });
 
         if (response.success && response.data) {
           setState((prev) => ({
             ...prev,
-            payments: prev.payments.map((p) => (p.id === id ? response.data! : p)),
-            selectedPayment: prev.selectedPayment?.id === id ? response.data! : prev.selectedPayment,
+            payments: prev.payments.map((p) =>
+              p.id === id ? response.data! : p
+            ),
+            selectedPayment:
+              prev.selectedPayment?.id === id
+                ? response.data!
+                : prev.selectedPayment,
             isProcessing: false,
             error: null,
           }));
@@ -342,12 +406,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isProcessing: false,
-            error: response.error || 'Failed to process payment',
+            error: response.error || "Failed to process payment",
           }));
-          return { success: false, error: response.error || 'Failed to process payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to process payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to process payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to process payment";
         setState((prev) => ({
           ...prev,
           isProcessing: false,
@@ -367,13 +435,21 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await service.failPayment(id, reason);
+        const response = await service.failPayment(id, {
+          adminUserId: "system",
+          reason,
+        });
 
         if (response.success && response.data) {
           setState((prev) => ({
             ...prev,
-            payments: prev.payments.map((p) => (p.id === id ? response.data! : p)),
-            selectedPayment: prev.selectedPayment?.id === id ? response.data! : prev.selectedPayment,
+            payments: prev.payments.map((p) =>
+              p.id === id ? response.data! : p
+            ),
+            selectedPayment:
+              prev.selectedPayment?.id === id
+                ? response.data!
+                : prev.selectedPayment,
             isProcessing: false,
             error: null,
           }));
@@ -382,12 +458,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isProcessing: false,
-            error: response.error || 'Failed to fail payment',
+            error: response.error || "Failed to fail payment",
           }));
-          return { success: false, error: response.error || 'Failed to fail payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to fail payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fail payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to fail payment";
         setState((prev) => ({
           ...prev,
           isProcessing: false,
@@ -407,13 +487,21 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       setState((prev) => ({ ...prev, isProcessing: true, error: null }));
 
       try {
-        const response = await service.refundPayment(id, amount, reason);
+        const response = await service.refundPayment(id, {
+          adminUserId: "system",
+          reason,
+        });
 
         if (response.success && response.data) {
           setState((prev) => ({
             ...prev,
-            payments: prev.payments.map((p) => (p.id === id ? response.data! : p)),
-            selectedPayment: prev.selectedPayment?.id === id ? response.data! : prev.selectedPayment,
+            payments: prev.payments.map((p) =>
+              p.id === id ? response.data!.originalPayment : p
+            ),
+            selectedPayment:
+              prev.selectedPayment?.id === id
+                ? response.data!.originalPayment
+                : prev.selectedPayment,
             isProcessing: false,
             error: null,
           }));
@@ -422,12 +510,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isProcessing: false,
-            error: response.error || 'Failed to refund payment',
+            error: response.error || "Failed to refund payment",
           }));
-          return { success: false, error: response.error || 'Failed to refund payment' };
+          return {
+            success: false,
+            error: response.error || "Failed to refund payment",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to refund payment';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to refund payment";
         setState((prev) => ({
           ...prev,
           isProcessing: false,
@@ -458,12 +550,18 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isUpdating: false,
-            error: response.error || 'Failed to bulk update payments',
+            error: response.error || "Failed to bulk update payments",
           }));
-          return { success: false, error: response.error || 'Failed to bulk update payments' };
+          return {
+            success: false,
+            error: response.error || "Failed to bulk update payments",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to bulk update payments';
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to bulk update payments";
         setState((prev) => ({
           ...prev,
           isUpdating: false,
@@ -494,12 +592,18 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
           setState((prev) => ({
             ...prev,
             isProcessing: false,
-            error: response.error || 'Failed to bulk process payments',
+            error: response.error || "Failed to bulk process payments",
           }));
-          return { success: false, error: response.error || 'Failed to bulk process payments' };
+          return {
+            success: false,
+            error: response.error || "Failed to bulk process payments",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to bulk process payments';
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to bulk process payments";
         setState((prev) => ({
           ...prev,
           isProcessing: false,
@@ -517,7 +621,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
   const fetchAnalytics = useCallback(
     async (startDate: Date, endDate: Date) => {
       try {
-        const response = await service.getAnalytics(startDate, endDate);
+        const response = await service.getPaymentAnalytics(startDate, endDate);
 
         if (response.success && response.data) {
           setState((prev) => ({
@@ -529,12 +633,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
         } else {
           setState((prev) => ({
             ...prev,
-            error: response.error || 'Failed to fetch analytics',
+            error: response.error || "Failed to fetch analytics",
           }));
-          return { success: false, error: response.error || 'Failed to fetch analytics' };
+          return {
+            success: false,
+            error: response.error || "Failed to fetch analytics",
+          };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch analytics';
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to fetch analytics";
         setState((prev) => ({
           ...prev,
           error: errorMessage,
@@ -550,7 +658,7 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
    */
   const fetchStats = useCallback(async () => {
     try {
-      const response = await service.getStats();
+      const response = await service.getPaymentAnalytics();
 
       if (response.success && response.data) {
         setState((prev) => ({
@@ -562,12 +670,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       } else {
         setState((prev) => ({
           ...prev,
-          error: response.error || 'Failed to fetch stats',
+          error: response.error || "Failed to fetch stats",
         }));
-        return { success: false, error: response.error || 'Failed to fetch stats' };
+        return {
+          success: false,
+          error: response.error || "Failed to fetch stats",
+        };
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stats';
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch stats";
       setState((prev) => ({
         ...prev,
         error: errorMessage,
@@ -618,12 +730,16 @@ export const usePayments = (initialFilters?: PaymentFilters): UsePaymentsReturn 
       } else {
         setState((prev) => ({
           ...prev,
-          error: response.error || 'Failed to export payments',
+          error: response.error || "Failed to export payments",
         }));
-        return { success: false, error: response.error || 'Failed to export payments' };
+        return {
+          success: false,
+          error: response.error || "Failed to export payments",
+        };
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to export payments';
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to export payments";
       setState((prev) => ({
         ...prev,
         error: errorMessage,

@@ -2,11 +2,11 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/analytics/page": "app/analytics/page.js",
   "/auth/login/page": "app/auth/login/page.js",
-  "/customers/create/page": "app/customers/create/page.js",
   "/customers/page": "app/customers/page.js",
   "/page": "app/page.js",
+  "/customers/create/page": "app/customers/create/page.js",
   "/subscriptions/create/page": "app/subscriptions/create/page.js",
   "/auth/register/page": "app/auth/register/page.js",
-  "/payments/page": "app/payments/page.js",
-  "/subscriptions/page": "app/subscriptions/page.js"
+  "/subscriptions/page": "app/subscriptions/page.js",
+  "/payments/page": "app/payments/page.js"
 }

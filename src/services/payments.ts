@@ -480,7 +480,27 @@ class PaymentService {
       document.body.removeChild(link);
     }
   }
-}
+
+  // Stub methods for missing functionality - TODO: Implement properly
+  async updatePayment(id: string, data: any): Promise<ApiResponse<Payment>> {
+    return { success: false, error: "Method not implemented yet" };
+  }
+
+  async deletePayment(id: string): Promise<ApiResponse<void>> {
+    return { success: false, error: "Method not implemented yet" };
+  }
+
+  async bulkUpdatePayments(paymentIds: string[], updates: any): Promise<ApiResponse<any>> {
+    return { success: false, error: "Method not implemented yet" };
+  }
+
+  async bulkProcessPayments(paymentIds: string[]): Promise<ApiResponse<any>> {
+    return { success: false, error: "Method not implemented yet" };
+  }
+
+  async exportPayments(filters: any): Promise<ApiResponse<any>> {
+    return { success: false, error: "Method not implemented yet" };
+  }}
 
 // Export singleton instance
 export const paymentService = new PaymentService();
